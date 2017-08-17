@@ -67,19 +67,17 @@ private class ConstructorJsonDeserializer<T>(
     private val types: Array<Type>
 
     init {
-        val params = constructor.parameters
-        val names = arrayOfNulls<String>(params.size)
-        val types = arrayOfNulls<Type>(params.size)
-        for (i in 0 until params.size) {
-            val param = params[i]
-            names[i] = param.getAnnotation(ReadAs::class.java)?.name
+        val paramAnnos = constructor.parameterAnnotations
+
+        val names = arrayOfNulls<String>(paramAnnos.size)
+        for (i in 0 until paramAnnos.size) {
+            names[i] = (paramAnnos[i].firstOrNull { it is ReadAs } as ReadAs?)?.name
                     ?: throw IllegalArgumentException("Every @Read constructor parameter must be annotated with @ReadAs, parameter #$i is not in constructor $constructor of type ${type.rawType}")
-            types[i] = param.parameterizedType
         }
 
-        // Arrays will be filled, I GUARANTEE IT
+        // Array will be filled, I GUARANTEE IT
         this.names = @Suppress("UNCHECKED_CAST") (names as Array<String>)
-        this.types = @Suppress("UNCHECKED_CAST") (types as Array<Type>)
+        this.types = constructor.genericParameterTypes
     }
 
     override fun deserialize(json: JsonElement, typeOfT: Type, context: JsonDeserializationContext): T {
