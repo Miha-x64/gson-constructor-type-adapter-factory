@@ -50,11 +50,15 @@ private class ConstructorTypeAdapter<T>(
                 else null
     }
 
-    override fun read(`in`: JsonReader): T = readAdapter?.read(`in`)
-            ?: throw UnsupportedOperationException("This ConstructorTypeAdapter instance is write-only, no @Read constructor found in class ${type.rawType}")
+    override fun read(`in`: JsonReader): T {
+        if (readAdapter == null) throw UnsupportedOperationException("This ConstructorTypeAdapter instance is write-only, no @Read constructor found in class ${type.rawType}")
+        return readAdapter.read(`in`)
+    }
 
-    override fun write(out: JsonWriter, value: T) = writer?.write(out, value)
-            ?: throw UnsupportedOperationException("This ConstructorTypeAdapter instance is read-only, no @Write annotation found on class ${type.rawType}")
+    override fun write(out: JsonWriter, value: T) {
+        if (writer == null) throw UnsupportedOperationException("This ConstructorTypeAdapter instance is read-only, no @Write annotation found on class ${type.rawType}")
+        writer.write(out, value)
+    }
 
 }
 

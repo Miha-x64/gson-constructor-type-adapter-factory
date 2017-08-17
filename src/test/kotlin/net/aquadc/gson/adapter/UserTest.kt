@@ -5,7 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class ConstructorTypeAdapterFactoryTest {
+class UserTest {
 
     private val gson = GsonBuilder()
             .registerTypeAdapterFactory(ConstructorTypeAdapterFactory)
