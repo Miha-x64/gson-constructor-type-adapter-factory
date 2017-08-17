@@ -18,3 +18,5 @@ val user = gson.fromJson<User>("""{
         "lastName": "Gorunov"
     }""", User::class.java)
 ```
+
+[Show me the code](/src/main/kotlin/net/aquadc/gson/adapter)
