@@ -129,19 +129,24 @@ private class Writer<in T>(
         this.adapters = @Suppress("UNCHECKED_CAST") (adapters as Array<TypeAdapter<Any?>>)
     }
 
-    fun write(out: JsonWriter, value: T) {
-        out.beginObject()
+    fun write(out: JsonWriter, value: T?) {
+        if (value == null) {
+            out.nullValue()
+        } else {
+            out.beginObject()
 
-        val names = names
-        val getters = getters
-        val adapters = adapters
-        val size = adapters.size
+            val names = names
+            val getters = getters
+            val adapters = adapters
+            val size = adapters.size
 
-        for (i in 0 until size) {
-            out.name(names[i])
-            adapters[i].write(out, getters[i].invoke(value))
+            for (i in 0 until size) {
+                out.name(names[i])
+                val gotValue = getters[i](value)
+                adapters[i].write(out, gotValue)
+            }
+
+            out.endObject()
         }
-
-        out.endObject()
     }
 }
