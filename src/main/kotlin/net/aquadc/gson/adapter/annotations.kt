@@ -40,3 +40,10 @@ annotation class Write
 @Target(PROPERTY_GETTER)
 @Retention(RUNTIME)
 annotation class WriteAs(val name: String)
+
+/**
+ * Specified that
+ */
+@Target(PROPERTY_GETTER)
+@Retention(RUNTIME)
+annotation class MergeWithRoot

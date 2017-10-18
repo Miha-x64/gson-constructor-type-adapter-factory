@@ -2,6 +2,7 @@ package net.aquadc.gson.adapter
 
 import com.google.gson.*
 import com.google.gson.internal.bind.TreeTypeAdapter
+import com.google.gson.internal.bind.TypeAdapters
 import com.google.gson.reflect.TypeToken
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonWriter
@@ -113,28 +114,51 @@ private class Writer<in T>(
         type: TypeToken<T>
 ) {
 
-    private val names: Array<String>
-    private val getters: Array<Method>
+    private val names: Array<String> // names may be smaller than others
+    private val getters: Array<Method> // getters.size == adapters.size
     private val adapters: Array<TypeAdapter<Any?>>
+    private val namesDeniedForMerge: Set<String> // if not empty, there are some @MergeWithRoot properties
 
     init {
-        val getters = type.rawType.methods.filter { it.getAnnotation(WriteAs::class.java) != null }.toTypedArray()
-        val voidGetters = getters.filter { it.returnType == Void.TYPE }
-        if (voidGetters.isNotEmpty()) throw IllegalArgumentException("Getters annotated with @WriteAs must not return void as these do: $voidGetters in class ${type.rawType}")
+        val methods = type.rawType.methods
+        val namedGetters = methods.filter { it.getAnnotation(WriteAs::class.java) != null }
+        val mergeGetters = methods.filter { it.getAnnotation(MergeWithRoot::class.java) != null }
+        val allGetters = (namedGetters + mergeGetters).toTypedArray()
 
-        val size = getters.size
-        val names = arrayOfNulls<String>(size)
-        val adapters = arrayOfNulls<TypeAdapter<*>>(size)
+        val voidGetters = allGetters.filter { it.returnType == Void.TYPE }
+        if (voidGetters.isNotEmpty())
+            throw IllegalArgumentException("Getters annotated with @WriteAs must not return void as these do: $voidGetters in class ${type.rawType}")
 
-        for (i in 0 until size) {
-            val getter = getters[i]
+        val gettersCount = allGetters.size
+        val namedGettersCount = namedGetters.size
+        val names = arrayOfNulls<String>(namedGettersCount)
+        val adapters = arrayOfNulls<TypeAdapter<*>>(gettersCount)
+
+        val brokenGetters = HashSet(namedGetters)
+        brokenGetters.retainAll(mergeGetters)
+        if (brokenGetters.isNotEmpty())
+            throw IllegalArgumentException("Getter must annotated either with @WriteAs or @MergeWithRoot, both found on $brokenGetters in class ${type.rawType}")
+
+        for (i in 0 until namedGettersCount) {
+            val getter = allGetters[i]
             names[i] = getter.getAnnotation(WriteAs::class.java)!!.name
             adapters[i] = gson.getAdapter(TypeToken.get(getter.genericReturnType))
         }
+        @Suppress("UNCHECKED_CAST") (names as Array<String>)
 
-        this.names = @Suppress("UNCHECKED_CAST") (names as Array<String>)
-        this.getters = getters
+        for (i in namedGettersCount until gettersCount) {
+            val getter = allGetters[i]
+            adapters[i] = gson.getAdapter(TypeToken.get(getter.genericReturnType))
+        }
+
+        val nameSet = names.toHashSet()
+        if (nameSet.size != names.size)
+            throw IllegalArgumentException("Found duplicate names in @WriteAs properties")
+
+        this.names = names
+        this.getters = allGetters
         this.adapters = @Suppress("UNCHECKED_CAST") (adapters as Array<TypeAdapter<Any?>>)
+        this.namesDeniedForMerge = if (mergeGetters.isEmpty()) emptySet() else nameSet // throw away nameSet if it will never be used
     }
 
     fun write(out: JsonWriter, value: T?) {
@@ -142,19 +166,57 @@ private class Writer<in T>(
             out.nullValue()
         } else {
             out.beginObject()
-
-            val names = names
-            val getters = getters
-            val adapters = adapters
-            val size = adapters.size
-
-            for (i in 0 until size) {
-                out.name(names[i])
-                val gotValue = getters[i](value)
-                adapters[i].write(out, gotValue)
-            }
-
+            writeNamedFields(out, value)
+            writeMergedFields(out, value)
             out.endObject()
         }
     }
+
+    private fun writeNamedFields(out: JsonWriter, value: T) {
+        val names = names
+        val getters = getters
+        val adapters = adapters
+
+        for (i in 0 until names.size) {
+            out.name(names[i])
+            val fieldValue = getters[i](value)
+            adapters[i].write(out, fieldValue)
+        }
+    }
+
+    private fun writeMergedFields(out: JsonWriter, value: T) {
+        val getters = getters
+        val adapters = adapters
+
+        val canonicalDeniedNames = namesDeniedForMerge
+        val locallyDeniedNames = HashSet<String>()
+        for (i in names.size until adapters.size) {
+            val fieldValue = getters[i](value)
+            val jsonEl = adapters[i].toJsonTree(fieldValue)
+
+            if (jsonEl !is JsonObject)
+                throw IllegalArgumentException("@MergeWithRoot-annotated getter must return object which will be serialized to JsonObject. " +
+                        "Method ${getters[i]}, adapter ${adapters[i]}, returned $jsonEl.")
+
+            jsonEl.entrySet().forEach { (key, value) ->
+                if (key in canonicalDeniedNames)
+                    throw IllegalArgumentException(
+                            "@MergeWithRoot-annotated getter returned object which was serialized JsonObject " +
+                                    "containing mapping for key which already exists in root JsonObject. " +
+                            "Method ${getters[i]}, adapter ${adapters[i]}, key $key, sub-object $jsonEl.")
+
+                if (key in locallyDeniedNames)
+                    throw IllegalArgumentException(
+                            "@MergeWithRoot-annotated getter returned object which was serialized to JsonObject " +
+                                    "containing mapping for key which already exists in another @MergeWithRoot object. " +
+                                    "Method ${getters[i]}, adapter ${adapters[i]}, key $key, already taken keys $locallyDeniedNames, sub-object $jsonEl."
+                    )
+
+                locallyDeniedNames.add(key)
+                out.name(key)
+                TypeAdapters.JSON_ELEMENT.write(out, value)
+            }
+        }
+    }
+
 }
