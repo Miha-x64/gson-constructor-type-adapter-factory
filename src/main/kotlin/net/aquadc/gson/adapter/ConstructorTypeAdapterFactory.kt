@@ -67,7 +67,7 @@ private class ConstructorJsonDeserializer<T>(
         private val constructor: Constructor<in T>
 ) : JsonDeserializer<T> {
 
-    private val names: Array<String>
+    private val names: Array<String?>
     private val types: Array<Type>
 
     init {
@@ -75,12 +75,18 @@ private class ConstructorJsonDeserializer<T>(
 
         val names = arrayOfNulls<String>(paramAnnos.size)
         for (i in 0 until paramAnnos.size) {
-            names[i] = (paramAnnos[i].firstOrNull { it is ReadAs } as ReadAs?)?.name
-                    ?: throw IllegalArgumentException("Every @Read constructor parameter must be annotated with @ReadAs, parameter #$i is not in constructor $constructor of type ${type.rawType}")
+            val readAs = (paramAnnos[i].firstOrNull { it is ReadAs } as ReadAs?)?.name
+            val readAsRoot = (paramAnnos[i].firstOrNull { it is ReadAsRoot }) != null
+
+            if (readAs == null && !readAsRoot)
+                throw IllegalArgumentException("Every @Read constructor parameter must be annotated " +
+                        "either with @ReadAs or @ReadAsRoot, but parameter #$i is not, " +
+                        "in constructor $constructor of type ${type.rawType}")
+
+            names[i] = readAs
         }
 
-        // Array will be filled, I GUARANTEE IT
-        this.names = @Suppress("UNCHECKED_CAST") (names as Array<String>)
+        this.names = names
         this.types = constructor.genericParameterTypes
     }
 
@@ -92,7 +98,9 @@ private class ConstructorJsonDeserializer<T>(
                 ?: throw IllegalArgumentException("ConstructorJsonDeserializers deserializes only Objects, $json given for type ${type.rawType}")
         val params = arrayOfNulls<Any?>(size) // todo: array recycling
         for (i in 0 until size) {
-            params[i] = context.deserialize(json.get(names[i]), types[i])
+            // take specified field or whole JsonObject
+            val jsonEl = names[i]?.let { json.get(it) } ?: json
+            params[i] = context.deserialize(jsonEl, types[i])
         }
 
         @Suppress("UNCHECKED_CAST") // i hope Gson won't give shit to me
