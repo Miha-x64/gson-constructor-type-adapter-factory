@@ -20,3 +20,10 @@ val user = gson.fromJson<User>("""{
 ```
 
 [Show me the code](/src/main/kotlin/net/aquadc/gson/adapter)
+
+Changelog
+
+* 1.2
+  * Supporting `@ReadAsRoot` and `@MergeWithRoot`, see 
+  [ReadAsRootTest](/src/test/kotlin/net/aquadc/gson/adapter/ReadAsRootTest.kt)
+  for sample usage
