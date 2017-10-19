@@ -100,7 +100,8 @@ private class ConstructorJsonDeserializer<T>(
         val params = arrayOfNulls<Any?>(size) // todo: array recycling
         for (i in 0 until size) {
             // take specified field or whole JsonObject
-            val jsonEl = names[i]?.let { json.get(it) } ?: json
+            val name = names[i] // if name == null, it's @ReadAsRoot
+            val jsonEl = if (name != null) { json.get(name) } else json
             params[i] = context.deserialize(jsonEl, types[i])
         }
 
