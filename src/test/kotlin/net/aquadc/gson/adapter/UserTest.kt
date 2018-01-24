@@ -12,19 +12,19 @@ class UserTest {
             .create()
 
     @Test fun serialization() {
-        val json = gson.toJson(User("Mike", "Gorunov"))
-        assertTrue(json == """{"firstName":"Mike","lastName":"Gorunov"}""" ||
-                json == """{"lastName":"Gorunov","firstName":"Mike"}""")
+        val json = gson.toJson(User("Mike", "G"))
+        assertTrue(json == """{"firstName":"Mike","lastName":"G"}""" ||
+                json == """{"lastName":"G","firstName":"Mike"}""")
     }
 
     @Test fun deserialization() {
         val model = gson.fromJson<User>("""{
             "firstName": "Mike",
-            "lastName": "Gorunov"
+            "lastName": "G"
         }""", User::class.java)
 
         assertEquals("Mike", model.name)
-        assertEquals("Gorunov", model.surname)
+        assertEquals("G", model.surname)
     }
 
     @Write

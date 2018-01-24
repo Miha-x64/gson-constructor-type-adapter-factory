@@ -1,6 +1,7 @@
 package net.aquadc.gson.adapter
 
 import com.google.gson.*
+import com.google.gson.internal.`$Gson$Types`
 import com.google.gson.internal.bind.TreeTypeAdapter
 import com.google.gson.internal.bind.TypeAdapters
 import com.google.gson.reflect.TypeToken
@@ -88,7 +89,13 @@ private class ConstructorJsonDeserializer<T>(
         }
 
         this.names = names
-        this.types = constructor.genericParameterTypes
+
+        val genericTypes = constructor.genericParameterTypes
+        this.types = Array(genericTypes.size) {
+            val genericType = genericTypes[it]
+            val resolvedType = `$Gson$Types`.resolve(type.type, type.rawType, genericType)
+            resolvedType
+        }
     }
 
     override fun deserialize(json: JsonElement, typeOfT: Type, context: JsonDeserializationContext): T {
