@@ -15,7 +15,7 @@ val gson = GsonBuilder()
 
 val user = gson.fromJson<User>("""{
         "firstName": "Mike",
-        "lastName": "Gorunov"
+        "lastName": "G"
     }""", User::class.java)
 ```
 
@@ -23,7 +23,16 @@ val user = gson.fromJson<User>("""{
 
 Changelog
 
+* 1.0
+  * Init. Using @Read, @Write, @ReadAs, @WriteAs
+  
 * 1.2
   * Supporting `@ReadAsRoot` and `@MergeWithRoot`, see 
   [ReadAsRootTest](/src/test/kotlin/net/aquadc/gson/adapter/ReadAsRootTest.kt)
   for sample usage
+
+* 1.2.1
+  * Fixed null-value parsing
+
+* 1.2.2
+  * Fixed generic type parsing
